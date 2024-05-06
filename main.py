@@ -1,6 +1,7 @@
 import shakmaty_python_binding
 
 
+
 def main():
     a=shakmaty_python_binding.MyChess()
     print(a )
