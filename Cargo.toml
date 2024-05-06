@@ -1,15 +1,20 @@
 [package]
-name = "shakmaty"
-version = "0.27.0" # remember to update changelog and html_root_url
-description = "Chess and chess variant rules and operations"
-repository = "https://github.com/niklasf/shakmaty"
-readme = "README.md"
-license = "GPL-3.0+"
-authors = ["Niklas Fiekas <niklas.fiekas@backscattering.de>"]
-categories = ["games", "parser-implementations"]
-keywords = ["chess", "lichess"]
+name = "shakmaty_python_binding"
+version = "0.1.0"
 edition = "2021"
-rust-version = "1.75" # remember to update test.yml
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "shakmaty_python_binding"
+crate-type = ["cdylib"]
+bench = false
+
+[dependencies]
+pyo3 = "0.19.0"
+bitflags = "2.0.0"
+btoi = "0.4"
+arrayvec = { version = "0.7", default-features = false }
+nohash-hasher = { version = "0.2", optional = true }
 
 [features]
 default = ["std"]
@@ -21,15 +26,6 @@ nohash-hasher = ["dep:nohash-hasher"]
 [[bench]]
 name = "benches"
 harness = false
-
-[lib]
-bench = false
-
-[dependencies]
-bitflags = "2.0.0"
-btoi = "0.4"
-arrayvec = { version = "0.7", default-features = false }
-nohash-hasher = { version = "0.2", optional = true }
 
 [dev-dependencies]
 csv = "1.3"

@@ -1,78 +1,3 @@
-//! A library for chess move generation.
-//!
-//! # Examples
-//!
-//! Generate legal moves in the starting position:
-//!
-//! ```
-//! use shakmaty::{Chess, Position};
-//!
-//! let pos = Chess::default();
-//! let legals = pos.legal_moves();
-//! assert_eq!(legals.len(), 20);
-//! ```
-//!
-//! Play moves:
-//!
-//! ```
-//! # use shakmaty::{Chess, Position};
-//! use shakmaty::{Square, Move, Role};
-//! #
-//! # let pos = Chess::default();
-//!
-//! // 1. e4
-//! let pos = pos.play(&Move::Normal {
-//!     role: Role::Pawn,
-//!     from: Square::E2,
-//!     to: Square::E4,
-//!     capture: None,
-//!     promotion: None,
-//! })?;
-//! # Ok::<_, shakmaty::PlayError<_>>(())
-//! ```
-//!
-//! Detect game end conditions:
-//!
-//! ```
-//! # use shakmaty::{Chess, Position};
-//! # let pos = Chess::default();
-//! assert!(!pos.is_checkmate());
-//! assert!(!pos.is_stalemate());
-//! assert!(!pos.is_insufficient_material());
-//! assert_eq!(pos.outcome(), None); // no winner yet
-//! ```
-//!
-//! Also supports [FEN](fen), [SAN](san) and
-//! [UCI](uci) formats for positions and moves.
-//!
-//! # Feature flags
-//!
-//! * `alloc`: Enables APIs which require the
-//!   [`alloc`](https://doc.rust-lang.org/stable/alloc/index.html) crate
-//!   (e.g. FEN string rendering).
-//! * `std`: Implements the
-//!   [`std::error::Error`](https://doc.rust-lang.org/stable/std/error/trait.Error.html)
-//!   trait for various errors in the crate.
-//!   Implies the `alloc` feature (since `std` depends on `alloc` anyway).
-//!   Enabled by default for convenience. For `no_std` environments, this must
-//!   be disabled with `default-features = false`.
-//! * `variant`: Enables support for all Lichess variants.
-//! * `nohash-hasher`: Implements
-//!   [`nohash_hasher::IsEnabled`](https://docs.rs/nohash-hasher/0.2/nohash_hasher/trait.IsEnabled.html)
-//!   for sensible types.
-
-#![no_std]
-#![doc(html_root_url = "https://docs.rs/shakmaty/0.27.0")]
-#![forbid(unsafe_op_in_unsafe_fn)]
-#![warn(missing_debug_implementations)]
-#![cfg_attr(docs_rs, feature(doc_auto_cfg))]
-
-#[cfg(feature = "alloc")]
-extern crate alloc;
-
-#[cfg(feature = "std")]
-extern crate std;
-
 #[macro_use]
 mod util;
 mod bootstrap;
@@ -95,6 +20,7 @@ pub mod san;
 pub mod uci;
 pub mod zobrist;
 
+
 #[cfg(feature = "variant")]
 pub mod variant;
 
@@ -112,18 +38,84 @@ pub use role::{ByRole, Role};
 pub use setup::{Castles, Setup};
 pub use square::{File, ParseSquareError, Rank, Square};
 pub use types::{CastlingMode, EnPassantMode, Move, Piece, RemainingChecks};
+pub use uci::UciMove;
 
-#[cfg(feature = "nohash-hasher")]
-impl nohash_hasher::IsEnabled for File {}
+use pyo3::prelude::*;
 
-#[cfg(feature = "nohash-hasher")]
-impl nohash_hasher::IsEnabled for Rank {}
 
-#[cfg(feature = "nohash-hasher")]
-impl nohash_hasher::IsEnabled for Square {}
+macro_rules! add_classes {
+    ($module:ident, $($class:ty),+) => {
+        $(
+            $module.add_class::<$class>()?;
+        )+
+    };
+}
 
-#[cfg(feature = "nohash-hasher")]
-impl nohash_hasher::IsEnabled for Role {}
+macro_rules! add_functions {
+    ($module:ident, $($function:ident),+) => {
+        $(
+            $module.add_wrapped(wrap_pyfunction!($function))?;
+        )+
+    };
+}
 
-#[cfg(feature = "nohash-hasher")]
-impl nohash_hasher::IsEnabled for Color {}
+
+/// Formats the sum of two numbers as string.
+#[pyfunction]
+fn sum_as_string(a: usize, b: usize) -> PyResult<String> {
+    Ok((a + b).to_string())
+}
+
+/// A Python module implemented in Rust.
+///#[pymodule]
+///#[pyo3(name = "shakmaty_python_binding")]
+///fn shakmaty_python_binding(_py: Python, m: &PyModule) -> PyResult<()> {
+///    m.add_function(wrap_pyfunction!(sum_as_string, m)?)?;
+///    Ok(())
+///}
+
+
+#[pyclass(module = "shakmaty_python_binding")]
+pub struct MyChess {
+    chess:Chess
+}
+
+#[pymethods]
+impl MyChess {
+    #[new]
+    pub const fn new() -> MyChess {
+        MyChess {
+            chess: Chess::new()
+        }
+    }
+
+    fn __str__(&self) -> PyResult<String> {
+        Ok(format!("Email(subject={}", self.chess.board()))
+    }
+
+    fn play(&mut self, to: String) -> PyResult<()> {
+        //let move_str = String::from("e2e3");
+        let uci = to.parse::<UciMove>().expect("valid uci");
+        let m = uci.to_move(&self.chess).expect("legal uci");
+        let m2=&Move::Normal {
+            role: Role::Pawn,
+            from: Square::E2,
+            to: Square::E4,
+            capture: None,
+            promotion: None,
+        };
+        self.chess.play_unchecked(&m);
+        Ok(())
+    }
+
+}
+
+
+
+
+
+#[pymodule]
+fn shakmaty_python_binding(_py: Python, m: &PyModule) -> PyResult<()> {
+    add_classes!(m, MyChess);
+    Ok(())
+}

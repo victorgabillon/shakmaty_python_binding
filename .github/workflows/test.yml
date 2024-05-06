@@ -34,3 +34,4 @@ jobs:
       - run: cargo doc --no-default-features ${{ matrix.flags }}
       - run: cargo bench --no-default-features ${{ matrix.flags }}
       - run: cargo check --manifest-path fuzz/Cargo.toml
+
