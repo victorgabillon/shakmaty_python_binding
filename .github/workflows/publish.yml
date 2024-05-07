@@ -15,7 +15,7 @@ jobs:  # .github/workflows/ci-cd.yml
       name: pypi
       url: https://pypi.org/p/shakmaty_python_binding
     permissions:
-      id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
+      id-token: pypi-AgEIcHlwaS5vcmcCJGEyODdmOTY3LTNiY2YtNGJkMy1iMGI0LWRkYTM1NjBmNGZlZAACKlszLCI0MGEzODg3ZS1hMzljLTQ2NmItOTRlNS0wZjMxYTRkZTcwYWIiXQAABiDpr0zIUyBm2qdoq1tWv8uTekzXHGAEwlrb4WhROZiFGg
     steps:
       # retrieve your distributions here
 
