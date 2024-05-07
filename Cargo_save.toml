@@ -3,7 +3,6 @@ name = "shakmaty"
 version = "0.27.0" # remember to update changelog and html_root_url
 description = "Chess and chess variant rules and operations"
 repository = "https://github.com/niklasf/shakmaty"
-readme = "README.md"
 license = "GPL-3.0+"
 authors = ["Niklas Fiekas <niklas.fiekas@backscattering.de>"]
 categories = ["games", "parser-implementations"]
