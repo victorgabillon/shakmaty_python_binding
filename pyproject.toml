@@ -1,5 +1,6 @@
+
 [build-system]
-requires = ["maturin>=1.4,<2.0","setuptools", "wheel"]  # PEP 508 specifications.
+requires = ["maturin>=1.4,<2.0"]
 build-backend = "maturin"
 
 [project]
@@ -11,10 +12,6 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dynamic = ["version"]
-version = "0.0.1"
-authors = [
-  { name="Example Author", email="author@example.com" },
-]
 
 [dependencies]
 maturin = "1.4.0"

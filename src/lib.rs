@@ -32,14 +32,14 @@ pub use movelist::MoveList;
 pub use perft::perft;
 pub use position::{
     Chess, FromSetup, Outcome, ParseOutcomeError, PlayError, Position, PositionError,
-    PositionErrorKinds,
+    PositionErrorKinds
 };
 pub use role::{ByRole, Role};
 pub use setup::{Castles, Setup};
 pub use square::{File, ParseSquareError, Rank, Square};
 pub use types::{CastlingMode, EnPassantMode, Move, Piece, RemainingChecks};
 pub use uci::UciMove;
-
+pub use fen::Fen;
 use pyo3::prelude::*;
 
 
@@ -51,20 +51,9 @@ macro_rules! add_classes {
     };
 }
 
-macro_rules! add_functions {
-    ($module:ident, $($function:ident),+) => {
-        $(
-            $module.add_wrapped(wrap_pyfunction!($function))?;
-        )+
-    };
-}
 
 
-/// Formats the sum of two numbers as string.
-#[pyfunction]
-fn sum_as_string(a: usize, b: usize) -> PyResult<String> {
-    Ok((a + b).to_string())
-}
+
 
 /// A Python module implemented in Rust.
 ///#[pymodule]
@@ -74,40 +63,60 @@ fn sum_as_string(a: usize, b: usize) -> PyResult<String> {
 ///    Ok(())
 ///}
 
+fn setup_fen<T: Position + FromSetup>(fen: &str) -> T {
+        fen.parse::<Fen>()
+            .expect("valid fen")
+            .into_position::<T>(CastlingMode::Chess960)
+            .expect("legal position")
+}
 
-#[pyclass(module = "shakmaty_python_binding")]
+
+
+
+
+#[pyclass]
 pub struct MyChess {
     chess:Chess
 }
 
+
 #[pymethods]
 impl MyChess {
     #[new]
-    pub const fn new() -> MyChess {
+    pub fn new(_fen_start:&str) -> MyChess {
         MyChess {
-            chess: Chess::new()
+            chess: setup_fen(_fen_start)
         }
     }
 
     fn __str__(&self) -> PyResult<String> {
-        Ok(format!("Email(subject={}", self.chess.board()))
+        Ok(format!("board fen: {}", self.chess.board()))
     }
 
     fn play(&mut self, to: String) -> PyResult<()> {
-        //let move_str = String::from("e2e3");
         let uci = to.parse::<UciMove>().expect("valid uci");
         let m = uci.to_move(&self.chess).expect("legal uci");
-        let m2=&Move::Normal {
-            role: Role::Pawn,
-            from: Square::E2,
-            to: Square::E4,
-            capture: None,
-            promotion: None,
-        };
         self.chess.play_unchecked(&m);
         Ok(())
     }
 
+    fn ply(&mut self) -> PyResult<u32> {
+        Ok(self.chess.halfmoves())
+    }
+
+    fn turn(&mut self) -> PyResult<u8> {
+        Ok(self.chess.turn() as u8)
+    }
+
+    fn is_game_over(&mut self) -> PyResult<bool> {
+        Ok(self.chess.is_game_over())
+    }
+
+    fn copy(&mut self) -> PyResult<MyChess> {
+        Ok(MyChess {
+            chess: self.chess.clone()
+        })
+    }
 }
 
 
