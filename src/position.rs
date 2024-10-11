@@ -3825,3 +3825,108 @@ mod tests {
         }));
     }
 }
+
+
+///// adddd
+
+impl Chess{
+
+    pub fn play_unchecked_modifications(&mut self, m: &Move) {
+        do_move_modifications(
+            &mut self.board,
+            &mut Bitboard(0),
+            &mut self.turn,
+            &mut self.castles,
+            &mut self.ep_square,
+            &mut self.halfmoves,
+            &mut self.fullmoves,
+            m,
+        );
+    }
+}
+
+
+
+
+
+#[allow(clippy::too_many_arguments)] // But typesafe
+fn do_move_modifications(
+    board: &mut Board,
+    promoted: &mut Bitboard,
+    turn: &mut Color,
+    castles: &mut Castles,
+    ep_square: &mut Option<EnPassant>,
+    halfmoves: &mut u32,
+    fullmoves: &mut NonZeroU32,
+    m: &Move,
+) {
+    let color = *turn;
+    ep_square.take();
+
+    *halfmoves = if m.is_zeroing() {
+        0
+    } else {
+        halfmoves.saturating_add(1)
+    };
+
+    match *m {
+        Move::Normal {
+            role,
+            from,
+            capture,
+            to,
+            promotion,
+        } => {
+            if role == Role::Pawn && to - from == 16 && from.rank() == Rank::Second {
+                *ep_square = from.offset(8).map(EnPassant);
+            } else if role == Role::Pawn && from - to == 16 && from.rank() == Rank::Seventh {
+                *ep_square = from.offset(-8).map(EnPassant);
+            }
+
+            if role == Role::King {
+                castles.discard_color(color);
+            } else if role == Role::Rook {
+                castles.discard_rook(from);
+            }
+
+            if capture == Some(Role::Rook) {
+                castles.discard_rook(to);
+            }
+
+            board.discard_piece_at(from);
+            board.set_piece_at(to, promotion.map_or(role.of(color), |p| p.of(color)));
+
+            let is_promoted = promoted.remove(from) || promotion.is_some();
+            promoted.set(to, is_promoted);
+        }
+        Move::Castle { king, rook } => {
+            let side = CastlingSide::from_queen_side(rook < king);
+            board.discard_piece_at(king);
+            board.discard_piece_at(rook);
+            board.set_piece_at(
+                Square::from_coords(side.rook_to_file(), rook.rank()),
+                color.rook(),
+            );
+            board.set_piece_at(
+                Square::from_coords(side.king_to_file(), king.rank()),
+                color.king(),
+            );
+            castles.discard_color(color);
+        }
+        Move::EnPassant { from, to } => {
+            board.discard_piece_at(Square::from_coords(to.file(), from.rank())); // captured pawn
+            board.discard_piece_at(from);
+            board.set_piece_at(to, color.pawn());
+        }
+        Move::Put { role, to } => {
+            board.set_piece_at(to, Piece { color, role });
+        }
+    }
+
+    if color.is_black() {
+        *fullmoves = NonZeroU32::new(fullmoves.get().saturating_add(1)).unwrap();
+    }
+
+    *turn = !color;
+}
+
