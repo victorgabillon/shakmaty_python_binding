@@ -1,60 +1,19 @@
-#[macro_use]
-mod util;
-mod bootstrap;
-mod castling_side;
-mod color;
-mod magics;
-mod movelist;
-mod perft;
-mod position;
-mod role;
-mod setup;
-mod square;
-mod types;
-
-pub mod attacks;
-pub mod bitboard;
-pub mod board;
-pub mod fen;
-pub mod san;
-pub mod uci;
-pub mod zobrist;
-
-
-#[cfg(feature = "variant")]
-pub mod variant;
-
-pub use bitboard::Bitboard;
-pub use board::Board;
-pub use castling_side::{ByCastlingSide, CastlingSide};
-pub use color::{ByColor, Color, ParseColorError};
-pub use movelist::MoveList;
-pub use perft::perft;
-pub use position::{
-    Chess, FromSetup, Outcome, ParseOutcomeError, PlayError, Position, PositionError,
-    PositionErrorKinds
-};
-pub use role::{ByRole, Role};
-pub use setup::{Castles, Setup};
-pub use square::{File, ParseSquareError, Rank, Square};
-pub use types::{CastlingMode, EnPassantMode, Move, Piece, RemainingChecks};
-pub use uci::UciMove;
-pub use fen::Fen;
-pub use fen::Epd;
-use pyo3::prelude::*;
-
 use std::collections::HashSet;
 use std::collections::HashMap;
-use std::borrow::BorrowMut;
- use std::borrow::Borrow;
 
-use crate::{
-    setup::{EnPassant},
-};
+//use pyo3::{pymodule,pymethods,pyclass, PyResult,Python};
+//use pyo3::types::PyModule;
+use pyo3::prelude::*;
 
-use core::{
-    num::NonZeroU32,
-};
+use shakmaty::{Position, FromSetup,CastlingMode,Chess,MoveList,EnPassantMode,Square,Piece,Color,CastlingSide,Board,Role,Move};
+use shakmaty::fen::Fen;
+use shakmaty::uci::UciMove;
+
+use shakmaty_syzygy::{Tablebase};
+
+
+
+
 
 macro_rules! add_classes {
     ($module:ident, $($class:ty),+) => {
@@ -72,21 +31,105 @@ macro_rules! add_classes {
 fn setup_fen<T: Position + FromSetup>(fen: &str) -> T {
         fen.parse::<Fen>()
             .expect("valid fen")
-            .into_position::<T>(CastlingMode::Chess960)
+            .into_position::<T>(CastlingMode::Standard)
             .expect("legal position")
 }
 
 
 
+///////////// MOVE
+
+#[derive(Eq, Hash)]
+#[pyclass]
+pub struct MyMove {
+    chess_move:Move
+}
+
+impl PartialEq for MyMove {
+    fn eq(&self, other: &Self) -> bool {
+        self.chess_move == other.chess_move
+    }
+}
+
+#[pymethods]
+impl MyMove {
+
+    #[new]
+    pub fn new(uci:&str, my_chess:&MyChess) -> MyMove {
+        MyMove{
+        	chess_move:UciMove::from_ascii(uci.as_bytes()).expect("REASON").to_move(&my_chess.chess).expect("REASON")
+        }
+    }
+    
+    fn is_zeroing(&self) -> PyResult<bool> {
+        Ok(self.chess_move.is_zeroing())
+    }
 
 
+    fn uci(&self) -> PyResult<String> {
+        Ok(self.chess_move.to_uci(CastlingMode::Standard).to_string())
+    }
+}
+
+
+impl MyMove {
+
+    pub fn new_rust(move_:Move) -> MyMove {
+    
+        MyMove {
+            chess_move: move_
+        }
+    }
+
+}
+/////////////// TABLE BASE
+
+
+#[pyclass]
+pub struct MyTableBase {
+    tables:Tablebase<shakmaty::Chess>
+}
+
+
+#[pymethods]
+impl MyTableBase {
+    #[new]
+    pub fn new(_path_to_table:&str) -> MyTableBase {
+    
+    	let mut tables_ = Tablebase::new();
+        let _ = tables_.add_directory(_path_to_table);
+        MyTableBase {
+            tables: tables_
+        }
+    }
+   
+    fn probe_wdl(&self, my_chess : &MyChess) -> PyResult<i8> {
+	
+	match self.tables.probe_wdl_after_zeroing(&my_chess.chess) {
+            Ok(wdl) => Ok(i8::from(wdl)),
+            Err(err) => panic!("probe wdl: {}", err),
+        }
+
+    }
+    
+    fn probe_dtz(&self, my_chess : &MyChess) -> PyResult<i32> {
+	
+	match self.tables.probe_dtz(&my_chess.chess) {
+            Ok(dtz) => Ok(i32::from(dtz.ignore_rounding())),
+            Err(err) => panic!("probe dtz: {}", err),
+        }
+
+    }
+}
+
+
+
+/////////////// CHESSBOARD
 
 #[pyclass]
 pub struct MyChess {
     chess:Chess
 }
-
-
 
 
 #[pymethods]
@@ -102,11 +145,9 @@ impl MyChess {
         Ok(format!("board fen: {}", self.chess.board()))
     }
 
-    fn play(&mut self, to: String) -> PyResult<()> {
-        let uci = to.parse::<UciMove>().expect("valid uci");
-        let m = uci.to_move(&self.chess).expect("legal uci");
-        self.chess.play_unchecked(&m);
-        Ok(())
+    fn play(&mut self, my_move_: &MyMove) -> PyResult<()> {
+        self.chess.play_unchecked(&my_move_.chess_move);
+        Ok(()) 
     }
 
     fn ply(&mut self) -> PyResult<u32> {
@@ -130,15 +171,20 @@ impl MyChess {
         })
     }
 
-    fn legal_moves(&mut self) -> PyResult<HashSet<String>> {
+    fn legal_moves(&mut self) -> PyResult<HashSet<MyMove>> {
         let move_list :MoveList = self.chess.legal_moves();
-        let mut uci_legal_moves = HashSet::new();
+        let mut legal_moves_my = HashSet::new();
         for a_move in move_list {
-            uci_legal_moves.insert(a_move.to_uci(CastlingMode::Standard).to_string());
+            legal_moves_my.insert(MyMove::new_rust(a_move));
             }
-        Ok(uci_legal_moves)
+        Ok(legal_moves_my)
     }
 
+
+    //fn legal_moves_2(&mut self) -> PyResult<MoveList> {
+    //    let move_list :MoveList = self.chess.legal_moves();
+    //    Ok(move_list)
+    //}
 
     fn number_of_pieces_on_the_board(&mut self)-> PyResult<u32> {
         Ok(self.chess.board().occupied().0.count_ones())
@@ -200,7 +246,7 @@ impl MyChess {
 	  //println!("{} {:?}  days", square, piece);
 	  if piece.color == real_color {
 		  let opposed_color = real_color.other();
-		  let mut bitb = self.chess.board().clone().attacks_to( square, opposed_color, self.chess.board().clone().occupied());
+		  let bitb = self.chess.board().clone().attacks_to( square, opposed_color, self.chess.board().clone().occupied());
 		  let a = u64::from(bitb) !=0;
 		  //println!("89 {:?} {}  bitb", bitb,a);
 		  res = res || a;
@@ -211,16 +257,95 @@ impl MyChess {
 	
 
     }
-     //   all_squares_of_color = chess.SquareSet()
-     //  for piece_type in [1, 2, 3, 4, 5, 6]:
-     //       new_squares = self.board.pieces(piece_type=piece_type, color=a_color)
-     //       all_squares_of_color = all_squares_of_color.union(new_squares)
-     //   all_attackers = chess.SquareSet()
-     //   for square in all_squares_of_color:
-     //       new_attackers = self.board.attackers(not a_color, square)
-     //       all_attackers = all_attackers.union(new_attackers)
-     //   return bool(all_attackers)
+    
+    
+
+    #[inline]
+    pub fn occupied(&self) -> PyResult<u64> {
+        Ok(u64::from(self.chess.board().occupied().clone()))
+    }
+
+    #[inline]
+    pub  fn pawns(&self) -> PyResult<u64> {
+        Ok(u64::from(self.chess.board().by_role(Role::Pawn)))
+    }
+
+    #[inline]
+    pub  fn knights(&self) -> PyResult<u64> {
+        Ok(u64::from(self.chess.board().by_role(Role::Knight)))
+    }
+
+    #[inline]
+    pub  fn bishops(&self) -> PyResult<u64> {
+        Ok(u64::from(self.chess.board().by_role(Role::Bishop)))
+    }
+
+    #[inline]
+    pub  fn rooks(&self) -> PyResult<u64> {
+        Ok(u64::from(self.chess.board().by_role(Role::Rook)))
+    }
+
+    #[inline]
+    pub  fn queens(&self) -> PyResult<u64> {
+        Ok(u64::from(self.chess.board().by_role(Role::Queen)))
+    }
+
+    #[inline]
+    pub  fn kings(&self) -> PyResult<u64> {
+        Ok(u64::from(self.chess.board().by_role(Role::King)))
+    }
+    
+    pub  fn promoted(&self) -> PyResult<u64> {
+        Ok(u64::from(self.chess.promoted()))
+    }
+    
+        #[inline]
+    pub  fn ep_square(&self) -> PyResult<i32> {
+       	let a= self.chess.maybe_ep_square();
+
+        match a {
+    		Some(x) => {return Ok(i32::from(x)) }
+    		None => {return Ok(i32::from(-1))}
+}
         
+    }
+    
+     pub  fn halfmove_clock(&self) -> PyResult<u32> {
+        Ok(u32::from(self.chess.halfmoves()))
+        
+    }
+    
+    pub  fn fullmove_clock(&self) -> PyResult<u32> {
+        Ok(u32::from(self.chess.fullmoves()))
+        
+    }
+    
+        #[inline]
+    pub  fn castling_rights(&self) -> PyResult<u64> {
+        Ok(u64::from(self.chess.castles().castling_rights()))
+    }
+    
+
+    #[inline]
+    pub  fn white(&self) -> PyResult<u64> {
+        Ok(u64::from(self.chess.board().by_color(Color::White)))
+    }
+
+    #[inline]
+    pub  fn black(&self) -> PyResult<u64> {
+        Ok(u64::from(self.chess.board().by_color(Color::Black)))
+    }
+    
+   fn result(&self) -> PyResult<String> {
+
+   	let a= self.chess.outcome();
+
+        match a {
+    		Some(x) => {return Ok(x.as_str().to_owned())}
+    		None => {return Ok("*".to_owned())}
+}
+    } 
+    
         
     fn play_modifications(&mut self, to: String) -> PyResult<()> {
         //let uci = to.parse::<UciMove>().expect("valid uci");
@@ -236,8 +361,8 @@ impl MyChess {
                // }
 
         let uci = to.parse::<UciMove>().expect("valid uci");
-        let m = uci.to_move(&self.chess).expect("legal uci");
-        self.chess.play_unchecked_modifications(&m);
+        let _m = uci.to_move(&self.chess).expect("legal uci");
+        //self.chess.play_unchecked_modifications(&m);
         Ok(())
 
     }
@@ -250,6 +375,9 @@ impl MyChess {
 
 #[pymodule]
 fn shakmaty_python_binding(_py: Python, m: &PyModule) -> PyResult<()> {
+    add_classes!(m, MyMove);
     add_classes!(m, MyChess);
+    add_classes!(m, MyTableBase);
+
     Ok(())
 }

@@ -1,6 +1,6 @@
 [package]
 name = "shakmaty_python_binding"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -15,6 +15,8 @@ bitflags = "2.0.0"
 btoi = "0.4"
 arrayvec = { version = "0.7", default-features = false }
 nohash-hasher = { version = "0.2", optional = true }
+shakmaty-syzygy = "0.25.1"
+shakmaty = "0.27.2"
 
 [features]
 default = ["std"]
