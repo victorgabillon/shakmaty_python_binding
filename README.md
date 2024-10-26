@@ -1,6 +1,6 @@
 # shakmaty binding for python
 
-A Python binding for the Rust library shakmaty
+A Python binding for the Rust library shakmaty, using pyo3 and maturin.
 
 To build use 
 

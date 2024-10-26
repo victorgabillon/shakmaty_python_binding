@@ -1,45 +1,13 @@
 class MyChess(object):
-    # no doc
-    def copy(self, *args, **kwargs): # real signature unknown
-        pass
+
+    def piece_at(self, square:int) -> tuple[bool,int]|None: 
+       ...
 
 
-
-
-
-
-
-    def legal_moves(self, *args, **kwargs): # real signature unknown
-        pass
-
-    def number_of_pieces_on_the_board(self, *args, **kwargs): # real signature unknown
-        pass
-
-    def piece_at(self, *args, **kwargs): # real signature unknown
-        pass
-
-    def piece_map(self, *args, **kwargs): # real signature unknown
-        pass
-
-
-
-    def play_modifications(self, *args, **kwargs): # real signature unknown
-        pass
-
-
-
-    def __init__(self, *args, **kwargs): # real signature unknown
-        pass
-
-    @staticmethod # known case of __new__
-    def __new__(*args, **kwargs): # real signature unknown
-        """ Create and return a new object.  See help(type) for accurate signature. """
-        pass
-
-    def __str__(self, *args, **kwargs): # real signature unknown
-        """ Return str(self). """
-        pass
-        
+    def piece_map(self) -> dict[int,tuple[int,bool]]: 
+       ...
+       
+       
     #returns a bitboard
     def pawns(self) -> int:
        ...
@@ -97,11 +65,19 @@ class MyChess(object):
        
     def halfmove_clock(self) -> int: 
        ...
-                  
+     
+    def copy(self) -> MyChess: 
+       ...             
                                
     def play(self, move:MyMove)-> None: 
         ...
-                
+        
+    def number_of_pieces_on_the_board(self)-> int: 
+        ...
+           
+    def legal_moves(self) -> set[MyMove]:
+       ...           
+     
 class MyMove(object):
 
 
