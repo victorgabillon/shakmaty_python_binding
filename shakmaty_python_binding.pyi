@@ -7,7 +7,29 @@ class MyChess(object):
     def piece_map(self) -> dict[int,tuple[int,bool]]: 
        ...
        
-       
+    def is_attacked(
+            self,
+            a_color: chess.Color
+    ) -> bool:
+       ...
+
+    def result(self) -> str:
+        ...
+
+    def promoted(self) -> int:
+        ...
+        
+    def ep_square(self) -> int:
+        ...
+        
+                    
+    def castling_rights(self) -> int:
+        ...
+        
+    #returns a bitboard
+    def occupied(self) -> int:
+        ...
+               
     #returns a bitboard
     def pawns(self) -> int:
        ...
