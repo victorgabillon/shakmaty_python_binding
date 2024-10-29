@@ -1,5 +1,11 @@
 class MyChess(object):
 
+
+
+    def __init__(self, _fen_start:str) -> None: 
+       ...
+       
+       
     def piece_at(self, square:int) -> tuple[bool,int]|None: 
        ...
 
@@ -103,16 +109,28 @@ class MyChess(object):
 class MyMove(object):
 
 
-    @staticmethod # known case of __new__
-    def __new__(*args, **kwargs): # real signature unknown
-        """ Create and return a new object.  See help(type) for accurate signature. """
-        pass
+    def __init__(self, uci:str, my_chess:MyChess) -> None: 
+       ...
         
     def is_zeroing(self)->bool:
         ...
 
     def uci(self)->str:
         ...
+        
+        
+class MyTableBase(object):
+
+
+    def __init__(self, _path_to_table:str) -> None: 
+       ...
+        
+    def probe_wdl(self,my_chess:MyChess)->int:
+        ...
+
+    def probe_dtz(self,my_chess:MyChess)->int:
+        ...
+
         
         
 
