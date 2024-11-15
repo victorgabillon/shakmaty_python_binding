@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::collections::HashMap;
+use std::vec::Vec;
 
 //use pyo3::{pymodule,pymethods,pyclass, PyResult,Python};
 //use pyo3::types::PyModule;
@@ -171,11 +172,11 @@ impl MyChess {
         })
     }
 
-    fn legal_moves(&mut self) -> PyResult<HashSet<MyMove>> {
+    fn legal_moves(&mut self) -> PyResult<Vec<MyMove>> {
         let move_list :MoveList = self.chess.legal_moves();
-        let mut legal_moves_my = HashSet::new();
+        let mut legal_moves_my = Vec::new();
         for a_move in move_list {
-            legal_moves_my.insert(MyMove::new_rust(a_move));
+            legal_moves_my.push(MyMove::new_rust(a_move));
             }
         Ok(legal_moves_my)
     }

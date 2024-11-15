@@ -103,7 +103,7 @@ class MyChess(object):
     def number_of_pieces_on_the_board(self)-> int: 
         ...
            
-    def legal_moves(self) -> set[MyMove]:
+    def legal_moves(self) -> list[MyMove]:
        ...           
      
 class MyMove(object):
