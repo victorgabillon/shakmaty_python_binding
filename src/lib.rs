@@ -37,6 +37,32 @@ fn setup_fen<T: Position + FromSetup>(fen: &str) -> T {
 }
 
 
+/////////////// Board state
+
+
+#[pyclass]
+pub struct MyBoardState {
+    fen:String
+}
+
+
+#[pymethods]
+impl MyBoardState {
+    #[new]
+    pub fn new(_path_to_table:&str) -> MyBoardState {
+    
+
+        MyBoardState {
+            fen: 'e'.to_string()
+        }
+    }
+    
+}
+
+    
+    
+    
+    
 
 ///////////// MOVE
 
@@ -142,13 +168,33 @@ impl MyChess {
         }
     }
 
-    fn __str__(&self) -> PyResult<String> {
-        Ok(format!("board fen: {}", self.chess.board()))
-    }
+
 
     fn play(&mut self, my_move_: &MyMove) -> PyResult<()> {
         self.chess.play_unchecked(&my_move_.chess_move);
         Ok(()) 
+    }
+    
+
+
+    fn copy(&mut self) -> PyResult<MyChess> {
+        Ok(MyChess {
+            chess: self.chess.clone()
+        })
+    }
+
+    fn piece_at(&mut self, square_int:u32)-> PyResult<Option<(bool,u32)>> {
+        let square = Square::new(square_int);
+        let a: Option<Piece> = self.chess.board().piece_at(square);
+        if a.is_none() {
+        Ok(None)
+            } else{
+                        Ok(Some((a.unwrap().color as u32 != 0,a.unwrap().role as u32)))
+                }
+        }
+
+    fn __str__(&self) -> PyResult<String> {
+        Ok(format!("board fen: {}", self.chess.board()))
     }
 
     fn ply(&mut self) -> PyResult<u32> {
@@ -165,13 +211,7 @@ impl MyChess {
     fn is_game_over(&mut self) -> PyResult<bool> {
         Ok(self.chess.is_game_over())
     }
-
-    fn copy(&mut self) -> PyResult<MyChess> {
-        Ok(MyChess {
-            chess: self.chess.clone()
-        })
-    }
-
+    
     fn legal_moves(&mut self) -> PyResult<Vec<MyMove>> {
         let move_list :MoveList = self.chess.legal_moves();
         let mut legal_moves_my = Vec::new();
@@ -202,15 +242,7 @@ impl MyChess {
         }
 
 
-    fn piece_at(&mut self, square_int:u32)-> PyResult<Option<(bool,u32)>> {
-        let square = Square::new(square_int);
-        let a: Option<Piece> = self.chess.board().piece_at(square);
-        if a.is_none() {
-        Ok(None)
-            } else{
-                        Ok(Some((a.unwrap().color as u32 != 0,a.unwrap().role as u32)))
-                }
-        }
+
 
 
 
@@ -347,26 +379,7 @@ impl MyChess {
 }
     } 
     
-        
-    fn play_modifications(&mut self, to: String) -> PyResult<()> {
-        //let uci = to.parse::<UciMove>().expect("valid uci");
-        //let m = uci.to_move(&self.chess).expect("legal uci");
-        //let a = self.chess.ep_square(EnPassantMode::Legal);
-        //let mut epsq :Option<EnPassant>;
-        //if a.is_none(){
-         //                           epsq = None;
 
-           // }else{
-             //           epsq = Some(EnPassant(a.expect("REASON")));
-
-               // }
-
-        let uci = to.parse::<UciMove>().expect("valid uci");
-        let _m = uci.to_move(&self.chess).expect("legal uci");
-        //self.chess.play_unchecked_modifications(&m);
-        Ok(())
-
-    }
 
 }
 
@@ -379,6 +392,6 @@ fn shakmaty_python_binding(_py: Python, m: &PyModule) -> PyResult<()> {
     add_classes!(m, MyMove);
     add_classes!(m, MyChess);
     add_classes!(m, MyTableBase);
-
+    add_classes!(m, MyBoardState);
     Ok(())
 }
