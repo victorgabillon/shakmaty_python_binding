@@ -1,0 +1,21 @@
+
+[build-system]
+requires = ["maturin>=1.7.4,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "shakmaty_python_binding"
+requires-python = ">=3.11"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+dynamic = ["version"]
+
+[dependencies]
+maturin = "1.7.4"
+rustimport = "1.5.0"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]

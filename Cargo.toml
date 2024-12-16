@@ -1,0 +1,41 @@
+[package]
+name = "shakmaty_python_binding"
+version = "0.1.4"
+edition = "2021"
+rust-version = "1.56"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "shakmaty_python_binding"
+crate-type = ["cdylib"]
+bench = false
+
+[dependencies]
+pyo3 = "0.19.0"
+bitflags = "2.0.0"
+btoi = "0.4"
+arrayvec = { version = "0.7", default-features = false }
+nohash-hasher = { version = "0.2", optional = true }
+shakmaty-syzygy = "0.25.1"
+shakmaty = "0.27.2"
+
+[features]
+default = ["std"]
+alloc = []
+std = ["alloc"]
+variant = []
+nohash-hasher = ["dep:nohash-hasher"]
+
+[[bench]]
+name = "benches"
+harness = false
+
+[dev-dependencies]
+csv = "1.3"
+iai = { version = "0.1", git = "https://github.com/sigaloid/iai", rev = "d56a5971f6d5556cd9e9b92e7e0f753c9ce9cdc7" }
+serde = { version = "1.0.197", features = ["derive"] }
+serde_with = "3.6.1"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docs_rs"]
