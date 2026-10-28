@@ -1,0 +1,61 @@
+name: ci
+
+on:
+  push:
+    branches: [master]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Verify release tag matches the package
+        run: |
+          python - <<'PY'
+          import os
+          import tomllib
+          from pathlib import Path
+          version = tomllib.loads(Path("Cargo.toml").read_text())["package"]["version"]
+          ref = os.environ["GITHUB_REF"]
+          if ref.startswith("refs/tags/"):
+              assert ref == f"refs/tags/v{version}", (ref, version)
+          PY
+      - name: Build native wheel and source distribution
+        run: |
+          python -m pip install maturin==1.15.0 chess==1.11.2 twine==7.0.0
+          maturin build --release --locked --out dist
+          maturin sdist --out dist
+          python -m twine check --strict dist/*
+      - name: Exercise installed native binding
+        run: |
+          python -m pip install --no-deps dist/*.whl
+          python -m unittest discover -s tests -v
+      - uses: actions/upload-artifact@v4
+        with:
+          name: distributions
+          path: dist/
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: test
+    runs-on: ubuntu-24.04
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: distributions
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
