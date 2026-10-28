@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::vec::Vec;
 
 //use pyo3::{pymodule,pymethods,pyclass, PyResult,Python};
@@ -12,8 +13,6 @@ use shakmaty::{
     Piece, Position, Role, Square,
 };
 
-mod push_with_modification;
-pub use push_with_modification::do_move_record_modifications;
 
 use shakmaty_syzygy::Tablebase;
 
@@ -244,6 +243,81 @@ pub struct MyChess {
     chess: Chess,
 }
 
+
+
+fn  compute_modifications(
+    move_: &Move,
+    turn: &Color
+) -> (HashSet<(u8,u8,u8)>,HashSet<(u8,u8,u8)>){
+
+    let mut appearances = HashSet::new();
+    let mut removals = HashSet::new();
+
+
+    let color = *turn;
+
+    match move_ {
+        Move::Normal {
+            role,
+            from,
+            capture,
+            to,
+            promotion,
+        } => {
+
+            removals.insert((*from as u8,*role as u8,color as u8));
+
+            let appearance_role = match promotion{
+                Some(x) => x,
+                None => role,
+            };
+
+            appearances.insert((*to as u8,*appearance_role as u8,color as u8));
+
+            /*let piece_at_: Option<Piece>= board.piece_at(to);
+            match piece_at_{
+                None => {},
+                Some(piece_at_) => {
+                    removals.push((to,piece_at_.role,!color));
+                },
+            }
+*/
+
+            match capture{
+                None => {},
+                Some(x) => {
+                    removals.insert((*to as u8,*x as u8,!color as u8));
+                },
+            }
+
+
+        }
+        Move::Castle { king, rook } => {
+            let side = CastlingSide::from_queen_side(rook < king);
+
+
+            removals.insert((*king as u8,Role::King as u8,color as u8));
+            removals.insert((*rook as u8,Role::Rook as u8,color as u8));
+
+            appearances.insert((Square::from_coords(side.king_to_file(), king.rank()) as u8,Role::King as u8,color as u8));
+            appearances.insert((Square::from_coords(side.rook_to_file(), rook.rank()) as u8,Role::Rook as u8,color as u8));
+
+        }
+        Move::EnPassant { from, to } => {
+            removals.insert((Square::from_coords(to.file(), from.rank()) as u8,Role::Pawn as u8,!color as u8)); // captured pawn
+            removals.insert((*from as u8 ,Role::Pawn as u8,color as u8)); // captured pawn
+            appearances.insert((*to as u8,Role::Pawn as u8,color as u8));
+        }
+        Move::Put { role, to } => {
+            appearances.insert((*to as u8,*role as u8,color as u8));
+
+        }
+    }
+    (appearances,removals)
+
+}
+
+
 #[pymethods]
 impl MyChess {
     #[new]
@@ -258,22 +332,45 @@ impl MyChess {
         Ok(())
     }
 
-    fn play_and_return(&mut self, my_move_: &MyMove) -> PyResult<(String, u32, u8, bool)> {
+
+
+    fn play_and_return_modifications(&mut self, my_move_: &MyMove)
+     -> PyResult<((u64, u64, u64, u64, u64, u64, u64, u64, u64, u8, i32, u64),HashSet<(u8,u8,u8)>,HashSet<(u8,u8,u8)>)> {
+
+
+        let modifications = compute_modifications(&my_move_.chess_move, &self.chess.turn());
         self.chess.play_unchecked(&my_move_.chess_move);
 
-        let a = u32::from(self.chess.fullmoves()) - 1;
-        let b = self.chess.turn() as u32;
-        let c = 2 * a + 1 - b;
+        let cas = u64::from(self.chess.castles().castling_rights());
+        // let  is_game_over = self.chess.is_game_over();
+
+        let pawns = u64::from(self.chess.board().by_role(Role::Pawn));
+        let knights = u64::from(self.chess.board().by_role(Role::Knight));
+        let bishops = u64::from(self.chess.board().by_role(Role::Bishop));
+        let rooks = u64::from(self.chess.board().by_role(Role::Rook));
+        let queens = u64::from(self.chess.board().by_role(Role::Queen));
+        let kings = u64::from(self.chess.board().by_role(Role::King));
+        let white = u64::from(self.chess.board().by_color(Color::White));
+        let black = u64::from(self.chess.board().by_color(Color::Black));
+        let turn = self.chess.turn() as u8;
+
+        let a = self.chess.maybe_ep_square();
+        let ep_square;
+
+        match a {
+            Some(x) => ep_square = i32::from(x),
+            None => ep_square = i32::from(-1),
+        }
+        let promoted = u64::from(self.chess.promoted());
 
         Ok((
-            format!("board fen: {}", self.chess.board()),
-            c,
-            self.chess.turn() as u8,
-            self.chess.is_game_over(),
+                      ( cas, pawns, knights, bishops, rooks, queens, kings, white, black, turn, ep_square,
+            promoted),
+            modifications.0, modifications.1
         ))
     }
 
-
+/*
     fn play_and_return_modifications(&mut self, my_move_: &MyMove) -> PyResult<(String, u32, u8, bool)> {
         self.chess.play_unchecked_return_modifications(&my_move_.chess_move);
 
@@ -288,7 +385,7 @@ impl MyChess {
             self.chess.is_game_over(),
         ))
     }
-
+*/
     fn play_and_return_o(
         &mut self,
         my_move_: &MyMove,
@@ -514,7 +611,7 @@ impl MyChess {
 }
 
 #[pymodule]
-fn shakmaty_python_binding(_py: Python, m: &PyModule) -> PyResult<()> {
+fn shakmaty_python_binding(m: &Bound<'_, PyModule>) -> PyResult<()> {
     add_classes!(m, MyMove);
     add_classes!(m, MyChess);
     add_classes!(m, MyTableBase);
